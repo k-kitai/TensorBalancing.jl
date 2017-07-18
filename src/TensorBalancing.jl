@@ -1,6 +1,9 @@
 module TensorBalancing
+export nBalancing, shBalancing
 
-export genβ, calcη, genTargetη, eProject
+using Optim
+using Logging
+using DataStructures
 
 """
     genβ{T<:AbstractArray}(P::Array{T,2})
@@ -8,15 +11,8 @@ export genβ, calcη, genTargetη, eProject
 Collect indices for β.
 """
 function genβ{T<:AbstractFloat}(P::Array{T,2})
-  shape = size(P)
-  β = [(1,1)]
-  for i in 2:shape[1]
-    push!(β, (i,1))
-  end
-  for i in 2:shape[2]
-    push!(β, (1,i))
-  end
-  return β
+  ylen, xlen = size(P)
+  return vcat([(1,1)], [(1,i) for i = 2:xlen], [(i,1) for i = 2:ylen])
 end
 
 """
@@ -48,85 +44,124 @@ end
 
 Generate target value of elements in η.
 """
-function genTargetη{T<:AbstractFloat}(P::Array{T}, β)
-  _shape = size(P)
+function genTargetη{T<:AbstractFloat}(P::AbstractArray{T}, β)
+  shape = size(P)
   dim = length(β[1])
-  return [prod(map(x->x[1]/x[2], zip([_shape...]-[idx...]+ones(Int32, dim), _shape))) for idx in β]
+  return [prod(map(x->x[1]/x[2], zip([shape...]-[idx...]+ones(Int32, dim), shape))) for idx in β]
 end
 
 """
-    renormalize!(A::Array{T})
+    cumθ{I<:Integer, T<:AbstractFloat}(θ::Array{T,1}, β::Array{Tuple{I,I},1}, shape)
 
-Renormalize an array as its elements sums to 1.
-
-# Examples
-```julia
-julia> A = ones(2,5);
-julia> renormalize!(A)
-julia> A
-2×5 Array{Float64,2}:
- 0.1  0.1  0.1  0.1  0.1
- 0.1  0.1  0.1  0.1  0.1
-```
+Calculate cumulative sum of θ for each row and column of a matrix.
 """
-function renormalize!{T<:AbstractFloat}(P::Array{T})
-  sum = 0
-  for i in 1:length(P)
-    sum += P[i]
-  end
-  if sum > 0
-    for i in 1:length(P)
-      P[i] /= sum
+function cumθ{I<:Integer, T<:AbstractFloat}(θ::Array{T,1}, β::Array{Tuple{I,I},1}, shape)
+  ylen, xlen = shape
+  cumθ_x = zeros(xlen)
+  cumθ_y = zeros(ylen)
+  for i in 1:length(β)
+    if β[i][1] == 1
+      cumθ_x[β[i][2]] = θ[i]
+    else
+      cumθ_y[β[i][1]] = θ[i]
     end
   end
-  return -log(sum)
+  cumθ_x = cumsum(cumθ_x)
+  cumθ_y = cumsum(cumθ_y)
+  return cumθ_x, cumθ_y
+end
+
+function genSubβ{T<:AbstractFloat}(β, η::Array{T,2}; ϵ=1e-6)
+  subβ_ = sort(β, 1; by=pos->η[pos...], rev=true)
+  #subβ = [subβ_[1]]
+  subβ = [1]
+  for i = 2:length(subβ_)
+    if abs(η[subβ[end]...] - η[subβ_[i]...]) > ϵ
+      #append!(subβ, [subβ_[i]])
+      push!(subβ, i)
+    else
+      common = tuple(map(x->max(x...), zip(subβ[end], subβ_[i]))...)
+      if abs(η[subβ[end]...] - η[common...]) > ϵ
+        #append!(subβ, [subβ_[i]])
+        push!(subβ, i)
+      end
+    end
+  end
+  return subβ
 end
 
 """
-    eProject{T<:AbstractFloat}(P::Array{T,2}, β, η_target, r=1e-9, max_iter=100)
+    nBalancing{T<:AbstractFloat}(P::Array{T,2}; ϵ=1e-9, max_iter=100, step=1.0, log_interval=10)
 
 Execute balancing by e-projection.
 """
-function eProject{T<:AbstractFloat}(P::Array{T,2}, β, η_target, r=1e-9, max_iter=100)
-  P_size = length(P)
-  shape = size(P)
-  _P = copy(P)
-  # memory allocation
-  Δθ = zeros(length(β))
-  Δθ[1] = renormalize!(_P)
-  δη = zeros(length(β))
-  jacobian = zeros(length(β), length(β))
+function nBalancing{T<:AbstractFloat}(P::Array{T,2}; ϵ=1e-9, max_iter=100, step=1.0, log_interval=10)
+  A = copy(P)
+  ylen, xlen = size(A)
+  β = genβ(A)
+  η_target = genTargetη(A, β)
 
-  count = 0
-  while true
-    η = calcη(_P)
+  # allocate memory
+  θ, λ = zeros(length(β)), 1.0
+  ∇F = zeros(length(β) + 1)
+  jacobian = zeros(length(β) + 1, length(β) + 1)
+
+  F = function(θ, λ)
+    sm = sum(A)
+    log(sm) - (η_target'θ)[1] + λ * (sm - 1)
+  end
+
+  # e-projection loop
+  for count = 1:max_iter
+    sm = sum(A)
+    η = calcη(A) ./ sm
     for i in 1:length(β)
-      δη[i] = η_target[i] - η[β[i]...]
+      ∇F[i] = (1 + λ * sm) * η[β[i]...] - η_target[i] 
     end
-    print("L2 error: ", sqrt(sum(δη.^2)), "\n")
-    if (sum(δη.^2) < r^2) | (count >= max_iter)
-      break
+    ∇F[end] = sm - 1
+
+    l2norm = sqrt(sum(∇F.^2))
+    if mod(count, log_interval) == 0
+      debug("[step $count] obj.: $(F(θ, λ)), grad: $l2norm, lambda: $λ")
     end
+    if l2norm < ϵ break end
+
+    # update jacobian
     for i in 1:length(β)
       for j in i:length(β)
         common = tuple(map(x->max(x...), zip(β[i], β[j]))...)
-        jacobian[i,j] = η[common...] - η[β[i]...] * η[β[j]...] * P_size
+        jacobian[i,j] = (1 + λ * sm) * η[common...] - η[β[i]...] * η[β[j]...]
         jacobian[j,i] = jacobian[i,j]
       end
+      jacobian[i,end] = jacobian[end,i] = sm * η[β[i]...]
     end
-    δθ = jacobian \ δη # solve a linear equation
-    δθdict = Dict(zip(β, δθ))
-    for i in 1:shape[1]
-      for j in 1:shape[2]
-        factor = exp(sum(map(pos -> δθdict[pos], filter(pos -> (i>=pos[1]) & (j>=pos[2]), β))))
-        _P[i,j] = _P[i,j] * factor
+
+    # update parameters
+    δθλ = zeros(length(β) + 1)
+    try
+      δθλ = step * (jacobian \ (-∇F)) # solve a linear equation
+    catch
+      warn("Jacobian matrix is singular. Projection loop is terminated.")
+      break
+    end
+    θ += δθλ[1:end-1]
+    λ += δθλ[end]
+    # make cumulative sum of θ for fast update
+    cumθ_x, cumθ_y = cumθ(θ, β, size(A))
+    # update matrix
+    for j = 1:xlen, i = 1:ylen
+      if P[i,j] > 1e-15
+        A[i,j] = P[i,j] * exp(cumθ_y[i] + cumθ_x[j])
       end
     end
-    Δθ += δθ
-    Δθ[1] += renormalize!(_P)
-    count += 1
   end
-  return _P, Δθ
+
+  cumθ_x, cumθ_y = cumθ(θ, β, size(A))
+  r = exp.(cumθ_y)
+  s = exp.(cumθ_x)
+  return A, r, s
 end
+
+include("FO.jl")
 
 end # module
