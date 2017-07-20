@@ -1,5 +1,5 @@
 module TensorBalancing
-export nBalancing, shBalancing
+export nBalancing, shBalancing, gdBalancing
 
 using Logging
 using DataStructures
