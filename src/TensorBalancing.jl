@@ -70,6 +70,28 @@ function cumθ{I<:Integer, T<:AbstractFloat}(θ::Array{T,1}, β::Array{Tuple{I,I
     return cumθ_x, cumθ_y
 end
 
+"""
+    cumθ!{I<:Integer, T<:AbstractFloat}(cumθ_x, cumθ_y, θ::Array{T,1}, β::Array{Tuple{I,I},1}, shape)
+
+Calculate cumulative sum of θ for each row and column of a matrix.
+"""
+function cumθ!{I<:Integer, T<:AbstractFloat}(cumθ_x::Array{T,1}, cumθ_y::Array{T,1}, θ::Array{T,1}, β::Array{Tuple{I,I},1}, shape)
+    ylen, xlen = shape
+    for i in 1:length(β)
+        if β[i][1] == 1
+            cumθ_x[β[i][2]] = θ[i]
+        else
+            cumθ_y[β[i][1]] = θ[i]
+        end
+    end
+    for i = 2:xlen
+        cumθ_x[i] += cumθ_x[i-1]
+    end
+    for i = 2:ylen
+        cumθ_y[i] += cumθ_y[i-1]
+    end
+end
+
 function genSubβ{T<:AbstractFloat}(β, η::Array{T,2}; ϵ=1e-6)
     subβ_ = sort(β, 1; by=pos->η[pos...], rev=true)
     #subβ = [subβ_[1]]
@@ -90,7 +112,7 @@ function genSubβ{T<:AbstractFloat}(β, η::Array{T,2}; ϵ=1e-6)
 end
 
 """
-        nBalancing{T<:AbstractFloat}(P::Array{T,2}; ϵ=1e-9, max_iter=100, step=1.0, log_interval=10)
+    nBalancing{T<:AbstractFloat}(P::Array{T,2}; ϵ=1e-9, max_iter=100, step=1.0, log_interval=10)
 
 Execute balancing by e-projection.
 """
@@ -156,11 +178,10 @@ function nBalancing{T<:AbstractFloat}(P::Array{T,2}; ϵ=1e-9, max_iter=100, step
     end
 
     cumθ_x, cumθ_y = cumθ(θ, β, size(A))
-    r = exp.(cumθ_y)
-    s = exp.(cumθ_x)
-    return A, r, s
+    return A
 end
 
 include("FO.jl")
+include("QN.jl")
 
 end # module
