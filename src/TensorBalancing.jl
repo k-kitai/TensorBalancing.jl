@@ -120,14 +120,18 @@ function genSubβ{T<:AbstractFloat}(β, η::Array{T,2}; ϵ=1e-6)
 end
 
 """
-    nBalancing{T<:AbstractFloat}(P::Array{T,2}; ϵ=1e-9, max_iter=100, step=1.0)
+    nBalancing{T<:AbstractFloat}(P::Array{T,2}; ϵ=1e-9, max_iter=100, show_trace=false, show_every=100)
 
 Matrix balancing by E-projection with Newton's method.
 
 # Parameters
 * P - Input matrix
+* ϵ - Threshold for the error of η-coordinate
+* max_iter - Max number of iterations for optimization
+* show_trace - Whether to print trace
+* show_every - Trace information is printed every `show_every`'th iteration
 """
-function nBalancing{T<:AbstractFloat}(P::Array{T,2}; ϵ=1e-9, max_iter=100)
+function nBalancing{T<:AbstractFloat}(P::Array{T,2}; ϵ=1e-9, max_iter=100, show_trace=false, show_every=100)
     A = copy(P)
     ylen, xlen = size(A)
     β = genβ(A)
@@ -146,6 +150,10 @@ function nBalancing{T<:AbstractFloat}(P::Array{T,2}; ϵ=1e-9, max_iter=100)
         A .*= 2.0 / sm
         θ[1] = log(2.0 / sm)
     end
+    
+    if show_trace
+        @printf "Iter     Function value    Gradient norm\n"
+    end
 
     # e-projection loop
     for count = 1:max_iter
@@ -155,9 +163,16 @@ function nBalancing{T<:AbstractFloat}(P::Array{T,2}; ϵ=1e-9, max_iter=100)
             grad[i] .= (1 + λ * sm) * η[β[i]...] - η_target[i]
         end
         grad[end] = sm - 1
-        if sqrt(sum(grad[1:end-1].^2)) < ϵ
+
+        gnorm = sqrt(sum(grad[1:end-1].^2))
+        if gnorm < ϵ
+            show_trace && @printf "%6d   %14e    %14e\n" count-1 log(sm)-η_target'θ gnorm
             break
         end
+        if show_trace && (count - 1) % show_every == 0
+            @printf "%6d   %14e    %14e\n" count-1 log(sm)-η_target'θ gnorm
+        end
+
 
         # update jacobian
         for i in 1:length(β)
