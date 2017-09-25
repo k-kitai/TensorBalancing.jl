@@ -1,5 +1,5 @@
 module TensorBalancing
-export nBalancing, qnBalancing
+export nBalancing, qnBalancing, ltqnBalancing
 
 """
     calcResidual(P::Array{T,2})
