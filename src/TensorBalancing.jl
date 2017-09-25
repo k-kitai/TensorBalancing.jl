@@ -2,6 +2,13 @@ module TensorBalancing
 export nBalancing, qnBalancing
 
 """
+    calcResidual(P::Array{T,2})
+
+Calculate the residual for balancing.
+"""
+calcResidual(P, scale=1.0) = norm(vcat((scale * sum(P, 1)' .- 1), (scale * sum(P, 2) .- 1)))
+
+"""
     genβ{T<:AbstractArray}(P::Array{T,2})
 
 Collect indices for β.
@@ -136,21 +143,16 @@ function nBalancing{T<:AbstractFloat}(P::Array{T,2}; ϵ=1e-9, max_iter=100, show
     ylen, xlen = size(A)
     β = genβ(A)
     η_target = genTargetη(A, β)
+    lengthβ = length(β)
 
     # allocate memory
     η = zeros(size(A))
-    θ, λ = zeros(length(β)), 1.0 # with Lagrange multiplier
-    δθλ = zeros(length(β)+1)
-    grad = zeros(length(β)+1)
-    jacobian = zeros(length(β)+1, length(β)+1)
+    θ, λ = zeros(lengthβ), 1.0 # θ and Lagrange multiplier
+    δθλ = zeros(lengthβ+1)
+    grad = zeros(lengthβ+1)
+    jacobian = zeros(lengthβ+1, lengthβ+1)
     cumθ_y, cumθ_x = zeros(ylen), zeros(xlen)
 
-    sm = sum(A)
-    if sm <= 2.0
-        A .*= 2.0 / sm
-        θ[1] = log(2.0 / sm)
-    end
-    
     if show_trace
         @printf "Iter     Function value    Gradient norm\n"
     end
@@ -159,24 +161,26 @@ function nBalancing{T<:AbstractFloat}(P::Array{T,2}; ϵ=1e-9, max_iter=100, show
     for count = 1:max_iter
         sm = sum(A)
         calcη!(η, A)
-        for i = 1:length(β)
+        for i = 1:lengthβ
             grad[i] .= (1 + λ * sm) * η[β[i]...] - η_target[i]
         end
         grad[end] = sm - 1
 
-        gnorm = sqrt(sum(grad[1:end-1].^2))
-        if gnorm < ϵ
+        res = calcResidual(A,xlen)
+        if res < ϵ
+            gnorm = sqrt(sum(grad[1:end-1].^2))
             show_trace && @printf "%6d   %14e    %14e\n" count-1 log(sm)-η_target'θ gnorm
             break
         end
         if show_trace && (count - 1) % show_every == 0
+            gnorm = sqrt(sum(grad[1:end-1].^2))
             @printf "%6d   %14e    %14e\n" count-1 log(sm)-η_target'θ gnorm
         end
 
 
         # update jacobian
-        for i in 1:length(β)
-            for j in i:length(β)
+        for i in 1:lengthβ
+            for j in i:lengthβ
                 common = tuple(map(x->max(x...), zip(β[i], β[j]))...)
                 jacobian[i,j] = (1 + λ * sm) * η[common...] - η[β[i]...] * η[β[j]...]
                 jacobian[j,i] = jacobian[i,j]
@@ -187,7 +191,7 @@ function nBalancing{T<:AbstractFloat}(P::Array{T,2}; ϵ=1e-9, max_iter=100, show
         # update parameters
         try
             δθλ .= jacobian \ grad # solve a linear equation
-        catch
+        catch e
             warn("Jacobian matrix got singular. Projection loop is terminated.")
             break
         end
