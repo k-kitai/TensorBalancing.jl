@@ -1,4 +1,11 @@
 module TensorBalancing
+using ArrayFire
+
+include("matrix/metric.jl")
+include("matrix/coordinate.jl")
+include("matrix/newton.jl")
+
+######## ALL CONTENTS BELOW ARE DEPRECATED ########
 
 export genβ, calcη, genTargetη, eProject
 
@@ -114,6 +121,8 @@ function eProject{T<:AbstractFloat}(P::Array{T,2}, β, η_target, r=1e-9, max_it
         jacobian[j,i] = jacobian[i,j]
       end
     end
+    @show jacobian
+    break
     δθ = jacobian \ δη # solve a linear equation
     δθdict = Dict(zip(β, δθ))
     for i in 1:shape[1]
