@@ -1,5 +1,5 @@
 module TensorBalancing
-using ArrayFire
+# using ArrayFire
 
 include("matrix/metric.jl")
 include("matrix/coordinate.jl")

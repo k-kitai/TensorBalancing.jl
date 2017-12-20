@@ -25,8 +25,8 @@ A = [
     ]
 A = Hessenberg(5)
 @test TB.calcRes(TB.nBalancing(A, 1.0e-9)) < 1e-9
-@test TB.calcRes(TB.nBalancing_gpu(A, 1.0e-9)) < 1e-9
+# @test TB.calcRes(TB.nBalancing_gpu(A, 1.0e-9)) < 1e-9
 @test norm(TB.nBalancing(Hessenberg(10), 1.0e-9) - eye(10)) < 1e-9
 # Random matrix
 @test TB.calcRes(TB.nBalancing(rand(5, 5), 1.0e-9)) < 1e-9
-@test TB.calcRes(TB.nBalancing_gpu(rand(5, 5), 1.0e-9)) < 1e-9
+# @test TB.calcRes(TB.nBalancing_gpu(rand(5, 5), 1.0e-9)) < 1e-9
