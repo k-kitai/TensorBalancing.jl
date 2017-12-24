@@ -1,6 +1,9 @@
 using TensorBalancing
+using Logging
 TB = TensorBalancing
 using Base.Test
+
+# Logging.configure(level=INFO)
 
 A = [
      1.0 0.5 0.0;
@@ -16,17 +19,19 @@ A = [
 
 # Hessenberg matrix
 Hessenberg(N) = cumsum(eye(N,N), 2)
-A = [
-     1.0 1.0 1.0 1.0 1.0;
-     0.0 1.0 1.0 1.0 1.0;
-     0.0 0.0 1.0 1.0 1.0;
-     0.0 0.0 0.0 1.0 1.0;
-     0.0 0.0 0.0 0.0 1.0
-    ]
-A = Hessenberg(5)
-@test TB.calcRes(TB.nBalancing(A, 1.0e-9)) < 1e-9
-@test TB.calcRes(TB.nBalancing_gpu(A, 1.0e-9)) < 1e-9
+function Hessenberg_mod(N)
+    H = Hessenberg(N)
+    for i = 1:N-1
+        H[i+1, i] = 1.0
+    end
+    H
+end
+
+@test TB.calcRes(TB.nBalancing(Hessenberg(10), 1.0e-9)) < 1e-9
+@test TB.calcRes(TB.nBalancing(Hessenberg_mod(10), 1.0e-9)) < 1e-9
+# @test TB.calcRes(TB.nBalancing_gpu(A, 1.0e-9)) < 1e-9
 @test norm(TB.nBalancing(Hessenberg(10), 1.0e-9) - eye(10)) < 1e-9
 # Random matrix
 @test TB.calcRes(TB.nBalancing(rand(5, 5), 1.0e-9)) < 1e-9
-@test TB.calcRes(TB.nBalancing_gpu(rand(5, 5), 1.0e-9)) < 1e-9
+# @test TB.calcRes(TB.nBalancing_gpu(rand(5, 5), 1.0e-9)) < 1e-9
+@test TB.calcRes(TB.recBalancing(Hessenberg_mod(100), 1.0e-7)) < 1e-7
