@@ -1,4 +1,6 @@
 using Logging
+using NLSolversBase
+using LineSearches
 
 """
     nBalancing{T<:AbstractArray}(A::Matrix{T})
@@ -6,26 +8,42 @@ using Logging
 Matrix balancing algorithm based on information geometry
 and Newton's Method.
 """
-function nBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN, norm_check=false)
-    applyΔθ(A, _nBalancing(A, ϵ, max_iter, norm_check))
+function nBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN)
+    M, N = size(A)
+    initialΔθ = zeros(M+N-2)
+    applyΔθ(A, _nBalancing(A, initialΔθ, ϵ, max_iter))
 end
 
-function _nBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN, norm_check=false)
+function _nBalancing{T<:AbstractFloat}(A::Matrix{T}, initialΔθ, ϵ=1.0e-9, max_iter=NaN)
     M, N = size(A)
     targetη = genTargetη(A)
-    Δθ = zeros(M+N-2) # scaling factor of each row and column
+    Δθ = copy(initialΔθ) # scaling factor of each row and column
+    Δθtmp = zeros(M+N-2)
+    δ = zeros(M+N-2)
     ul_index = min.(cumsum(ones(Int64, M-1, M-1), 1), cumsum(ones(Int64, M-1, M-1), 2))
     lr_index = min.(cumsum(ones(Int64, N-1, N-1), 1), cumsum(ones(Int64, N-1, N-1), 2)) .+ (M-1)
-    P = copy(A)
+    P = applyΔθ(A, Δθ)
 
     error_handler(e::Base.LinAlg.SingularException) = err("The Hessian got singular at $counter'th cycle. Input matrix may be too sparse or ϵ be too small.")
     error_handler(e::Exception) = throw(e)
 
-    α = 1.0
-    r = 1.0 - 1 / (M+N)
+    f(Δθ) = log(sum(applyΔθ(A, Δθ))) - dot(targetη, Δθ)
+    function g!(out, Δθ)
+        η = mat2η(applyΔθ(A, Δθ))
+        objη = vcat(η[1:M-1, N], η[M, 1:N-1])
+        out .= objη - targetη
+    end
+    function fg!(out, Δθ)
+        local P = applyΔθ(A, Δθ)
+        η = mat2η(P)
+        out .= vcat(η[1:M-1, N], η[M, 1:N-1])
+        log(sum(P)) - dot(targetη, Δθ)
+    end
+    df = OnceDifferentiable(f, g!, fg!, Δθ)
+
     counter = 0
-    prev_norm = Inf
     residual = calcRes(P)
+    hz = HagerZhang(0.1, 0.9, 1.0, 5.0, 1e-6, 0.66, 50, 0.1, 0) # Line search method
     while residual > ϵ && (isnan(max_iter) || counter < max_iter)
         η = mat2η(P)
         innη = η[1:M-1, 1:N-1]
@@ -37,25 +55,27 @@ function _nBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN, no
         J[1:M-1,   M:M+N-2] -= innη
         J[M:M+N-2, M:M+N-2] -= objη[lr_index]
         try
-            δ = J \ grad
+            δ .= J \ grad
         catch e
             error_handler(e)
             break
         end
-        # If jacobian is nearly singular, δ could be too large step instead of an error being raised.
-        if norm_check
-            curr_norm = norm(δ)
-            if curr_norm > prev_norm * 1.5
-                δ *= prev_norm / curr_norm
-            else
-                prev_norm = curr_norm
-            end
+
+        # Line search
+        α = 1.0
+        lsr = LineSearchResults(eltype(Δθ))
+        push!(lsr, 0.0, f(Δθ), -norm(grad))
+        α = hz(df, Δθ, δ, Δθtmp, lsr, α, true)
+        if α < 1.0e-10
+            info("Dismissing too small step: $α")
+            α = 1.0
         end
-        α *= r
-        Δθ += δ .* (1 - α)
+
+        Δθ += δ .* α
         P = applyΔθ(A, Δθ)
         residual = calcRes(P)
         counter += 1
+        # @show α f(Δθ) residual
     end
     Δθ
 end
@@ -64,18 +84,18 @@ end
     recBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN)
 
 """
-recBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN, depth=3) = applyΔθ(A, _recBalancing(A, ϵ, max_iter))
+recBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN, max_depth=3, depth=0) = applyΔθ(A, _recBalancing(A, ϵ, max_iter, max_depth, depth))
 function _recBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN, max_depth=2, depth=0)
     M, N = size(A)
     M1 = div(M, 2)
-    M2 = M - M1
     N1 = div(N, 2)
+    M2 = M - M1
     N2 = N - N1
 
     Δθ = zeros(M+N-2) # scaling factor of each row and column
     if (depth < max_depth && M > 16 && N > 16)
-        Δθ1 = _recBalancing(A[1:N1, 1:M1], ϵ * 2.0, max_iter, max_depth, depth+1)
-        Δθ2 = _recBalancing(A[N1+1:N1+N2, M1+1:M1+M2], ϵ * 2.0, max_iter, max_depth, depth+1)
+        Δθ1 = _recBalancing(A[1:M1, 1:N1], ϵ * 1.0, max_iter, max_depth, depth+1)
+        Δθ2 = _recBalancing(A[M1+1:M1+M2, N1+1:N1+N2], ϵ * 1.0, max_iter, max_depth, depth+1)
         Δθ[1:M1-1]     = Δθ1[1:M1-1]     # length M1-1   = M1-1
         Δθ[M:M+N1-2]   = Δθ1[M1:M1+N1-2] # length N1-1   = N1-1
         Δθ[M1+1:M-1]   = Δθ2[1:M2-1]     # length M-M1-1 = M2-1
@@ -87,8 +107,7 @@ function _recBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN, 
         Δθ[M1] += block_scaling
         Δθ[M+N1-1] += block_scaling
     end
-    Δθ += _nBalancing(applyΔθ(A, Δθ), ϵ, max_iter)
-    Δθ
+    _nBalancing(A, Δθ, ϵ, max_iter)
 end
 
 #============ GPU version ==============#
