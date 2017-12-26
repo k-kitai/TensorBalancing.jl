@@ -119,14 +119,37 @@ using ArrayFire
 Matrix balancing algorithm based on information geometry
 and Newton's Method.
 """
-function nBalancing_gpu{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9)
+function nBalancing_gpu{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN)
+    M, N = size(A)
+    initialΔθ = zeros(M+N-2)
+    applyΔθ(A, _nBalancing(A, initialΔθ, ϵ, max_iter))
+end
+
+function _nBalancing_gpu{T<:AbstractFloat}(A::Matrix{T}, initialΔθ, ϵ=1.0e-9, max_iter=NaN)
     M, N = size(A)
     targetη = genTargetη(A)
     Δθ = zeros(M+N-2) # scaling factor of each row and column
     ul_index = min.(cumsum(ones(Int64, M-1, M-1), 1), cumsum(ones(Int64, M-1, M-1), 2))
     lr_index = min.(cumsum(ones(Int64, N-1, N-1), 1), cumsum(ones(Int64, N-1, N-1), 2)) .+ (M-1)
-    P = copy(A)
-    α = 1.0
+    P = applyΔθ(A, Δθ)
+
+    f(Δθ) = log(sum(applyΔθ(A, Δθ))) - dot(targetη, Δθ)
+    function g!(out, Δθ)
+        η = mat2η(applyΔθ(A, Δθ))
+        objη = vcat(η[1:M-1, N], η[M, 1:N-1])
+        out .= objη - targetη
+    end
+    function fg!(out, Δθ)
+        local P = applyΔθ(A, Δθ)
+        η = mat2η(P)
+        out .= vcat(η[1:M-1, N], η[M, 1:N-1])
+        log(sum(P)) - dot(targetη, Δθ)
+    end
+    df = OnceDifferentiable(f, g!, fg!, Δθ)
+
+    counter = 0
+    residual = calcRes(P)
+    hz = HagerZhang(0.1, 0.9, 1.0, 5.0, 1e-6, 0.66, 50, 0.1, 0) # Line search method
     while(calcRes(P) > ϵ)
         η = Array(mat2η(AFArray(P)))
         innη = η[1:M-1, 1:N-1]
@@ -140,10 +163,23 @@ function nBalancing_gpu{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9)
 
         afJ = AFArray(J)
         piv = lu_inplace(afJ, true)
-        α *= 0.99
-        Δθ += Array(solve_lu(afJ, piv, AFArray(grad), AF_MAT_NONE)) .* (1 - α)
+        δ = Array(solve_lu(afJ, piv, AFArray(grad), AF_MAT_NONE))
 
+        # Line search
+        α = 1.0
+        lsr = LineSearchResults(eltype(Δθ))
+        push!(lsr, 0.0, f(Δθ), -norm(grad))
+        α = hz(df, Δθ, δ, Δθtmp, lsr, α, true)
+        if α < 1.0e-10
+            info("Dismissing too small step: $α")
+            α = 1.0
+        end
+
+        Δθ += δ .* α
         P = applyΔθ(A, Δθ)
+        residual = calcRes(P)
+        counter += 1
+        # @show α f(Δθ) residual
     end
-    P
+    Δθ
 end

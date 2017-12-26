@@ -1,6 +1,9 @@
 using BenchmarkTools
 using ArrayFire
 using TensorBalancing
+using Logging
+
+Logging.configure(level=INFO)
 
 TB = TensorBalancing
 
@@ -13,20 +16,12 @@ function Hessenberg_mod(N)
     H
 end
 
-Ns = round.(Int32, exp.(linspace(log(100), log(1000), 10)))
+Ns = round.(Int32, exp.(linspace(log(100), log(30000), 15)))
 
 print("=== Newton Balancing ===\n")
-print("N\tCPU\n")
-for N = Ns
-    @printf "%4d\t" N
-    time1 = @belapsed TB.nBalancing($(Hessenberg_mod(N)), 1.0e-6)
-    print(time1, "\n")
-    #time2 = @belapsed TB.nBalancing_gpu($(Hessenberg(N)), 1.0e-6)
-    #print(time2, "\n")
-end
 
 print("N\tCPU\tGPU\n")
-for N = round.(Int32, exp.(linspace(log(100), log(8000), 10)))
+for N = Ns
     @printf "%4d\t" N
     time1 = @belapsed TB.nBalancing($(Hessenberg(N)), 1.0e-6)
     print(time1, "\t")
