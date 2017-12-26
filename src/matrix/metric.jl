@@ -14,10 +14,10 @@ end
 """
     calcRes
 """
-function calcRes(A::AFArray)
+function calcRes{T<:AbstractFloat}(A::AFArray{T})
     M, N = size(A)
     colsum = sum(A, 1)
     rowsum = sum(A, 2)
     allsum = sum(colsum)
-    norm(vcat(colsum' .* N, rowsum .* M) ./ allsum  .- 1.0)
+    norm(vcat(colsum' .* N, rowsum .* M) ./ allsum  .- T(1.0))
 end

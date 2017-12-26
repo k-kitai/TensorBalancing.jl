@@ -10,7 +10,7 @@ and Newton's Method.
 """
 function nBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN)
     M, N = size(A)
-    initialΔθ = zeros(M+N-2)
+    initialΔθ = zeros(T, M+N-2)
     applyΔθ(A, _nBalancing(A, initialΔθ, ϵ, max_iter))
 end
 
@@ -18,8 +18,8 @@ function _nBalancing{T<:AbstractFloat}(A::Matrix{T}, initialΔθ, ϵ=1.0e-9, max
     M, N = size(A)
     targetη = genTargetη(A)
     Δθ = copy(initialΔθ) # scaling factor of each row and column
-    Δθtmp = zeros(M+N-2)
-    δ = zeros(M+N-2)
+    Δθtmp = zeros(T, M+N-2)
+    δ = zeros(T, M+N-2)
     ul_index = min.(cumsum(ones(Int64, M-1, M-1), 1), cumsum(ones(Int64, M-1, M-1), 2))
     lr_index = min.(cumsum(ones(Int64, N-1, N-1), 1), cumsum(ones(Int64, N-1, N-1), 2)) .+ (M-1)
     P = applyΔθ(A, Δθ)
@@ -92,7 +92,7 @@ function _recBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN, 
     M2 = M - M1
     N2 = N - N1
 
-    Δθ = zeros(M+N-2) # scaling factor of each row and column
+    Δθ = zeros(T, M+N-2) # scaling factor of each row and column
     if (depth < max_depth && M > 16 && N > 16)
         Δθ1 = _recBalancing(A[1:M1, 1:N1], ϵ * 1.0, max_iter, max_depth, depth+1)
         Δθ2 = _recBalancing(A[M1+1:M1+M2, N1+1:N1+N2], ϵ * 1.0, max_iter, max_depth, depth+1)
@@ -121,14 +121,15 @@ and Newton's Method.
 """
 function nBalancing_gpu{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN)
     M, N = size(A)
-    initialΔθ = zeros(M+N-2)
-    applyΔθ(A, _nBalancing(A, initialΔθ, ϵ, max_iter))
+    initialΔθ = zeros(T, M+N-2)
+    applyΔθ(A, _nBalancing_gpu(A, initialΔθ, ϵ, max_iter))
 end
 
 function _nBalancing_gpu{T<:AbstractFloat}(A::Matrix{T}, initialΔθ, ϵ=1.0e-9, max_iter=NaN)
     M, N = size(A)
     targetη = genTargetη(A)
-    Δθ = zeros(M+N-2) # scaling factor of each row and column
+    Δθ = copy(initialΔθ) # scaling factor of each row and column
+    Δθtmp = zeros(T, M+N-2)
     ul_index = min.(cumsum(ones(Int64, M-1, M-1), 1), cumsum(ones(Int64, M-1, M-1), 2))
     lr_index = min.(cumsum(ones(Int64, N-1, N-1), 1), cumsum(ones(Int64, N-1, N-1), 2)) .+ (M-1)
     P = applyΔθ(A, Δθ)
@@ -150,7 +151,7 @@ function _nBalancing_gpu{T<:AbstractFloat}(A::Matrix{T}, initialΔθ, ϵ=1.0e-9,
     counter = 0
     residual = calcRes(P)
     hz = HagerZhang(0.1, 0.9, 1.0, 5.0, 1e-6, 0.66, 50, 0.1, 0) # Line search method
-    while(calcRes(P) > ϵ)
+    while residual > ϵ && (isnan(max_iter) || counter < max_iter)
         η = Array(mat2η(AFArray(P)))
         innη = η[1:M-1, 1:N-1]
         objη = vcat(η[1:M-1, N], η[M, 1:N-1])
@@ -166,7 +167,7 @@ function _nBalancing_gpu{T<:AbstractFloat}(A::Matrix{T}, initialΔθ, ϵ=1.0e-9,
         δ = Array(solve_lu(afJ, piv, AFArray(grad), AF_MAT_NONE))
 
         # Line search
-        α = 1.0
+        α = T(1.0)
         lsr = LineSearchResults(eltype(Δθ))
         push!(lsr, 0.0, f(Δθ), -norm(grad))
         α = hz(df, Δθ, δ, Δθtmp, lsr, α, true)

@@ -9,7 +9,7 @@ function applyΔθ{T<:AbstractFloat}(A::Matrix{T}, Δθ::Vector{T})
     collogscale = zeros(N)
     rowlogscale[1:M-1] = cumsum_backward(Δθ[1:M-1])
     collogscale[1:N-1] = cumsum_backward(Δθ[M:N+M-2])
-    A .* exp.(min.(rowlogscale .+ collogscale', 500))
+    T.(A .* exp.(min.(rowlogscale .+ collogscale', 500)))
 end
 
 """
@@ -19,7 +19,7 @@ Generate the target value of η's marginal part.
 """
 function genTargetη{T<:AbstractFloat}(A::Matrix{T})
     M, N = size(A)
-    vcat((1:M-1)./M, (1:N-1)./N)
+    T.(vcat((1:M-1)./M, (1:N-1)./N))
 end
 
 """
