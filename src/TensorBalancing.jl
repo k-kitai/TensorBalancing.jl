@@ -4,6 +4,7 @@ using ArrayFire
 include("matrix/metric.jl")
 include("matrix/coordinate.jl")
 include("matrix/newton.jl")
+include("matrix/fixedpoint.jl")
 
 ######## ALL CONTENTS BELOW ARE DEPRECATED ########
 

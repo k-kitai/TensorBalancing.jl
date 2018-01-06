@@ -7,8 +7,13 @@ function applyΔθ{T<:AbstractFloat}(A::Matrix{T}, Δθ::Vector{T})
     M, N = size(A)
     rowlogscale = zeros(M)
     collogscale = zeros(N)
-    rowlogscale[1:M-1] = cumsum_backward(Δθ[1:M-1])
-    collogscale[1:N-1] = cumsum_backward(Δθ[M:N+M-2])
+    if length(Δθ) == M-1
+        rowlogscale[1:M-1] = cumsum_backward(Δθ)
+        collogscale .= rowlogscale
+    else
+        rowlogscale[1:M-1] = cumsum_backward(Δθ[1:M-1])
+        collogscale[1:N-1] = cumsum_backward(Δθ[M:N+M-2])
+    end
     T.(A .* exp.(min.(rowlogscale .+ collogscale', 500)))
 end
 
