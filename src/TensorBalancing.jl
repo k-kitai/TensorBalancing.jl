@@ -1,10 +1,14 @@
 module TensorBalancing
 using ArrayFire
+using LineSearches
+using Parameters
 
+include("steplength.jl")
 include("matrix/metric.jl")
 include("matrix/coordinate.jl")
 include("matrix/newton.jl")
 include("matrix/fixedpoint.jl")
+include("matrix/convex.jl")
 
 ######## ALL CONTENTS BELOW ARE DEPRECATED ########
 

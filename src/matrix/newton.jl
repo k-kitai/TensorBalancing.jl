@@ -53,7 +53,6 @@ function _nBalancing{T<:AbstractFloat}(A::Matrix{T}, initialΔθ, ϵ=1.0e-9, max
 
     counter = 0
     residual = calcRes(P)
-    @show residual f(Δθ)
     hz = HagerZhang(0.1, 0.9, 1.0, 5.0, 1e-6, 0.66, 50, 0.1, 0) # Line search method
     while residual > ϵ && (isnan(max_iter) || counter < max_iter)
         η = mat2η(P)
@@ -130,7 +129,6 @@ function _recBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN, 
             Δθ[M+N1-1] += block_scaling
         end
     end
-    @show depth size(A)
     _nBalancing(A, Δθ, ϵ, max_iter)
 end
 
