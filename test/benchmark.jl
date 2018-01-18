@@ -1,5 +1,4 @@
 using BenchmarkTools
-using ArrayFire
 using TensorBalancing
 using Logging
 include("knight_ruiz.jl")
@@ -18,7 +17,7 @@ if !isempty(ARGS)
     TESTS_TO_DO = parse.(Int, ARGS)
 end
 
-if 1 in TESTS_TO_DO
+if 1 in TESTS_TO_DO && TB.USE_AF
     print("=== Newton Balancing ===\n")
 
     print("N\tCPU\tGPU\n")

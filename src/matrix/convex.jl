@@ -21,7 +21,7 @@ function qnBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=65535)
 
     result = optimize((f, g!),
             initialX,
-            BFGS(linesearch = HagerZhang(0.1, 0.9, 1.0, 5.0, 1e-6, 0.66, 50, 0.1, 0)),
+            LBFGS(linesearch = HagerZhang(0.1, 0.9, 1.0, 5.0, 1e-6, 0.66, 50, 0.1, 0)),
             Optim.Options(
                 x_tol=-1.0,
                 f_tol=-1.0,
