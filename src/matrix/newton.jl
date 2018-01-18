@@ -10,7 +10,13 @@ and Newton's Method.
 """
 function nBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN)
     M, N = size(A)
-    initialΔθ = issymmetric(A) ? zeros(T, M-1) : zeros(T, M+N-2)
+    # initialΔθ = issymmetric(A) ? zeros(T, M-1) : zeros(T, M+N-2)
+    issym = issymmetric(A)
+    rowscale = issym ? -log.(Base.squeeze(sum(A, 1), 1)) ./ 2 :
+        -log.(Base.squeeze(sum(A, 2), 2)) ./ 2
+    colscale = issym ? 0 : -log.(Base.squeeze(sum(A, 1), 1)) ./ 2
+    initialΔθ = issym ? rowscale[1:end-1] - rowscale[2:end] :
+        vcat(rowscale[1:end-1] - rowscale[2:end],colscale[1:end-1] - colscale[2:end])
     applyΔθ(A, _nBalancing(A, initialΔθ, ϵ, max_iter))
 end
 
