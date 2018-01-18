@@ -11,6 +11,8 @@ end
 
 #============ GPU implementation ==============#
 
+if USE_AF
+
 """
     calcRes
 """
@@ -21,3 +23,5 @@ function calcRes{T<:AbstractFloat}(A::AFArray{T})
     allsum = sum(colsum)
     norm(vcat(colsum' .* N, rowsum .* M) ./ allsum  .- T(1.0))
 end
+
+end #USE_AF

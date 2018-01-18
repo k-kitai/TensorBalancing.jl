@@ -133,7 +133,8 @@ function _recBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN, 
 end
 
 #============ GPU version ==============#
-using ArrayFire
+
+if USE_AF
 
 """
     nBalancing_gpu{T<:AbstractArray}(A::Matrix{T})
@@ -206,3 +207,5 @@ function _nBalancing_gpu{T<:AbstractFloat}(A::Matrix{T}, initialΔθ, ϵ=1.0e-9,
     end
     Δθ
 end
+
+end #USE_AF

@@ -1,7 +1,11 @@
 module TensorBalancing
-using ArrayFire
 using LineSearches
 using Parameters
+
+USE_AF = !isa(Pkg.installed("ArrayFire"), Void)
+if USE_AF
+    using ArrayFire
+end
 
 include("matrix/metric.jl")
 include("matrix/coordinate.jl")
