@@ -3,7 +3,6 @@ using ArrayFire
 using LineSearches
 using Parameters
 
-include("steplength.jl")
 include("matrix/metric.jl")
 include("matrix/coordinate.jl")
 include("matrix/newton.jl")

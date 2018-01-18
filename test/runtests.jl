@@ -36,3 +36,4 @@ end
 # @test TB.calcRes(TB.nBalancing_gpu(rand(Float32, 5, 5), 1.0e-4)) < 1e-4
 @test TB.calcRes(TB.recBalancing(Hessenberg_mod(100), 1.0e-7)) < 1e-7
 @test TB.calcRes(TB.qnBalancing(Hessenberg_mod(100), 1.0e-7)) < 1e-7
+@test TB.calcRes(TB.qnBalancing_double(Hessenberg_mod(50), 1.0e-7)) < 1e-7

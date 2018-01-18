@@ -46,7 +46,7 @@ end
 
 include("Hi-C_example/utils.jl")
 if 3 in TESTS_TO_DO
-    println("=== Quasi-Newton vs. Knight-Ruiz vs. Fixed-point vs. Sinkhorn-Knopp ===\n")
+    println("=== Capacity-Func vs. Barrier-Func vs. Knight-Ruiz vs. Sinkhorn-Knopp vs. Newton ===\n")
 
     fnames = ["Hi-C_example/x_res50000.txt",
               "Hi-C_example/x_res25000.txt",
@@ -54,43 +54,52 @@ if 3 in TESTS_TO_DO
               "Hi-C_example/x_res5000.txt"]
     cut_sk = false
 
-    print("filename\tQuasi-Newton\tKnight-Ruiz\tFixed-point\tSK\n")
+    print("filename\tCapacity-Func\tBarrier-Func\tKnight-Ruiz\tSinkhorn-Knopp\tNewton\n")
     for fname = fnames
         print("$(basename(fname))\t")
         sp, m = load_csc_file(fname)
-        sq = Array(squeeze(sp, 2))
+        sq = Array(squeeze(sp, 1))
 
-        time1 = @elapsed TB.qnBalancing(sq, 1.0e-6, 2^30)
+        # time1 = @elapsed TB.qnBalancing(sq, 1.0e-6, 2^30)
+        time1 = @belapsed TB.qnBalancing($(sq), 1.0e-6, 2^30)
         print(time1, "\t")
-        time2 = @elapsed knight_ruiz(sq, 1.0e-6)
+        # time2 = @elapsed TB.qnBalancing_double(sq, 1.0e-6, 2^30)
+        time2 = @belapsed TB.qnBalancing_double($(sq), 1.0e-6, 2^30)
         print(time2, "\t")
-        time3 = @elapsed TB.fpnBalancing(sq, 1.0e-6, NaN)
+        # time3 = @elapsed knight_ruiz(sq, 1.0e-6)
+        time3 = @belapsed knight_ruiz($(sq), $(1.0e-6))
         print(time3, "\t")
-        time4 = @elapsed TB.skBalancing(sq, 1.0e-6, NaN)
-        print(time4, "\n")
+        # time4 = @elapsed TB.skBalancing(sq, 1.0e-6, NaN)
+        time4 = @belapsed TB.skBalancing($(sq), 1.0e-6, NaN)
+        print(time4, "\t")
+        # time5 = @elapsed TB.nBalancing(sq, 1.0e-6, NaN);
+        time5 = NaN # @belapsed TB.nBalancing($(sq), 1.0e-6, NaN);
+        print(time5, "\n")
     end
 end
 
 if 4 in TESTS_TO_DO
-    println("=== Quasi-Newton vs. Newton-method vs. Knight-Ruiz vs. Sinkhorn-Knopp ===\n")
+    println("=== capacity vs. barrier vs. Newton-method vs. Knight-Ruiz vs. Sinkhorn-Knopp ===\n")
 
     cut_sk = false
 
-    print("N\tQuasi-Newton\tNewton-method\tKnight-Ruiz\tSinkhorn-Knopp\n")
+    print("capacity\tbarrier\tNewton-method\tKnight-Ruiz\tSinkhorn-Knopp\n")
     for N = Ns
         @printf "%4d\t" N
         time1 = @elapsed TB.qnBalancing(Hessenberg_mod(N), 1.0e-6, 2^30)
         print(time1, "\t")
-        time2 = @elapsed TB.nBalancing(Hessenberg_mod(N), 1.0e-6, NaN)
+        time2 = @elapsed TB.qnBalancing_double(Hessenberg_mod(N), 1.0e-6, 2^30)
         print(time2, "\t")
-        time3 = NaN # @elapsed knight_ruiz(symmetrize(Hessenberg_mod(N)), 1.0e-6/sqrt(2))
+        time3 = @elapsed TB.nBalancing(Hessenberg_mod(N), 1.0e-6, NaN)
         print(time3, "\t")
-        time4 = NaN
+        time4 = NaN # @elapsed knight_ruiz(symmetrize(Hessenberg_mod(N)), 1.0e-6/sqrt(2))
+        print(time4, "\t")
+        time5 = NaN
         if !cut_sk
-            time4 = @elapsed TB.skBalancing(Hessenberg_mod(N), 1.0e-6, NaN)
+            time5 = @elapsed TB.skBalancing(Hessenberg_mod(N), 1.0e-6, NaN)
         end
         print(time4, "\n")
-        if time4 > 10
+        if time5 > 10
             cut_sk = true
         end
     end
