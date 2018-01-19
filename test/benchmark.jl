@@ -1,6 +1,7 @@
 using BenchmarkTools
 using TensorBalancing
 using Logging
+using ProfileView
 include("knight_ruiz.jl")
 
 Logging.configure(level=ERROR)
@@ -71,8 +72,8 @@ if 3 in TESTS_TO_DO
         # time4 = @elapsed TB.skBalancing(sq, 1.0e-6, NaN)
         time4 = @belapsed TB.skBalancing($(sq), 1.0e-6, NaN)
         print(time4, "\t")
-        # time5 = @elapsed TB.nBalancing(sq, 1.0e-6, NaN);
-        time5 = NaN # @belapsed TB.nBalancing($(sq), 1.0e-6, NaN);
+        time5 = @elapsed TB.nBalancing(sq, 1.0e-6, NaN);
+        # time5 = NaN # @belapsed TB.nBalancing($(sq), 1.0e-6, NaN);
         print(time5, "\n")
     end
 end
@@ -104,3 +105,10 @@ if 4 in TESTS_TO_DO
     end
 end
 
+if 5 in TESTS_TO_DO
+    println("=== profiling ===")
+    sp, m = load_csc_file("Hi-C_example/x_res50000.txt")
+    sq = squeeze(sp, 1)
+    @profile TB.qnBalancing(sq, 1.0e-6, 2^30)
+    Profile.print(mincount=300)
+end

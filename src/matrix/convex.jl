@@ -9,12 +9,14 @@ using LineSearches
 Matrix balancing algorithm based using LBFGS
 """
 
-function qnBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=65535)
+function qnBalancing{T<:AbstractFloat}(A::AbstractArray{T, 2}, ϵ=1.0e-9, max_iter=65535)
     M, N = size(A)
 
     f(x) = sum(log.(A*exp.(x))) - sum(x)
     function g!(grad, x)
-        grad .= squeeze(sum((A .* exp.(x')) ./ (A * exp.(x)), 1) .- 1, 1)
+        colscaled = A .* exp.(x')
+        rowsums = squeeze(sum(colscaled, 2), 2)
+        grad .= squeeze(sum(colscaled ./ rowsums, 1), 1) .- 1
     end
 
     initialX = -log.(Base.squeeze(sum(A, 1), 1))
