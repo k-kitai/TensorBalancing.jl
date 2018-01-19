@@ -7,6 +7,9 @@ include("knight_ruiz.jl")
 Logging.configure(level=ERROR)
 
 TB = TensorBalancing
+if TB.USE_AF
+    using ArrayFire
+end
 
 include("common.jl")
 
@@ -58,10 +61,11 @@ if 3 in TESTS_TO_DO
     for fname = fnames
         print("$(basename(fname))\t")
         sp, m = load_csc_file(fname)
-        sq = Array(squeeze(sp, 1))
+        sp = squeeze(sp)
+        sq = Array(squeeze(sp, 0))
 
         # time1 = @elapsed TB.qnBalancing(sq, 1.0e-6, 2^30)
-        time1 = @belapsed TB.qnBalancing($(sq), 1.0e-6, 2^30)
+        time1 = @belapsed TB.qnBalancing($(sp), 1.0e-6, 2^30)
         print(time1, "\t")
         # time2 = @elapsed TB.qnBalancing_double(sq, 1.0e-6, 2^30)
         time2 = @belapsed TB.qnBalancing_double($(sq), 1.0e-6, 2^30)

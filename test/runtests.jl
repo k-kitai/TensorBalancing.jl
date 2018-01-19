@@ -37,3 +37,8 @@ end
 @test TB.calcRes(TB.recBalancing(Hessenberg_mod(100), 1.0e-7)) < 1e-7
 @test TB.calcRes(TB.qnBalancing(Hessenberg_mod(100), 1.0e-7)) < 1e-7
 @test TB.calcRes(TB.qnBalancing_double(Hessenberg_mod(50), 1.0e-7)) < 1e-7
+
+if TB.USE_AF
+using ArrayFire
+@test TB.calcRes(TB.qnBalancing(AFArray(Hessenberg_mod(100)), 1.0e-7)) < 1e-7
+end #USE_AF
