@@ -16,6 +16,15 @@ include("common.jl")
 Ns = round.(Int32, exp.(linspace(log(100), log(30000), 15)))
 Ns = Ns[1:11]
 
+TB.nBalancing(Hessenberg_mod(3))
+TB.qnBalancing(Hessenberg_mod(3))
+TB.qnBalancing_double(Hessenberg_mod(3))
+TB.skBalancing(Hessenberg_mod(3))
+knight_ruiz(Hessenberg_mod(3))
+if TB.USE_AF
+    TB.qnBalancing(AFArray(Hessenberg_mod(3)))
+end
+
 TESTS_TO_DO = 1:3
 if !isempty(ARGS)
     TESTS_TO_DO = parse.(Int, ARGS)
@@ -62,19 +71,20 @@ if 3 in TESTS_TO_DO
         print("$(basename(fname))\t")
         sp, m = load_csc_file(fname)
         sp = squeeze(sp)
-        sq = Array(squeeze(sp, 0))
+        sq = Array(squeeze(sp, 1))
+        # afsp = AFArray(sq)
 
-        # time1 = @elapsed TB.qnBalancing(sq, 1.0e-6, 2^30)
-        time1 = @belapsed TB.qnBalancing($(sp), 1.0e-6, 2^30)
+        time1 = @elapsed TB.qnBalancing(sq, 1.0e-6, 2^30)
+        # time1 = @belapsed TB.qnBalancing($(sp), 1.0e-6, 2^30)
         print(time1, "\t")
-        # time2 = @elapsed TB.qnBalancing_double(sq, 1.0e-6, 2^30)
-        time2 = @belapsed TB.qnBalancing_double($(sq), 1.0e-6, 2^30)
+        time2 = @elapsed TB.qnBalancing_double(sq, 1.0e-6, 2^30)
+        # time2 = @belapsed TB.qnBalancing_double($(sq), 1.0e-6, 2^30)
         print(time2, "\t")
-        # time3 = @elapsed knight_ruiz(sq, 1.0e-6)
-        time3 = @belapsed knight_ruiz($(sq), $(1.0e-6))
+        time3 = @elapsed knight_ruiz(sq, 1.0e-6)
+        # time3 = @belapsed knight_ruiz($(sq), $(1.0e-6))
         print(time3, "\t")
-        # time4 = @elapsed TB.skBalancing(sq, 1.0e-6, NaN)
-        time4 = @belapsed TB.skBalancing($(sq), 1.0e-6, NaN)
+        time4 = @elapsed TB.skBalancing(sq, 1.0e-6, NaN)
+        # time4 = @belapsed TB.skBalancing($(sq), 1.0e-6, NaN)
         print(time4, "\t")
         time5 = @elapsed TB.nBalancing(sq, 1.0e-6, NaN);
         # time5 = NaN # @belapsed TB.nBalancing($(sq), 1.0e-6, NaN);

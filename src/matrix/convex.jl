@@ -13,27 +13,23 @@ Matrix balancing algorithm based using LBFGS
 function qnBalancing{T<:AbstractFloat}(A::AbstractArray{T, 2}, ϵ=1.0e-9, max_iter=65535)
     M, N = size(A)
 
-    colscaled = zeros(size(A))
     nth = nthreads()
     blocksize = div(M, nth)
     rowblocks = [blocksize*n+1:blocksize*(n+1) for n = 0:nth-1]
     rowblocks[end] = blocksize*(nth-1)+1 : M
     f(x) = sum(log.(A*exp.(x))) - sum(x)
     function g!(grad, x)
-        colsf = exp.(x)'
-        @threads for i = 1:nth
-            colscaled[rowblocks[i],:] .= A[rowblocks[i],:] .* colsf
-        end
-        # colscaled = A .* exp.(x')
-        rowsums = squeeze(sum(colscaled, 2), 2)
-        grad .= squeeze(sum(colscaled ./ rowsums, 1), 1) .- 1
+        exx = exp.(x)
+        rowsums_inv = 1./ (A * exx)
+        grad .= squeeze(rowsums_inv' * A, 1) .* exx .- 1
     end
 
     initialX = -log.(Base.squeeze(sum(A, 1), 1))
 
     result = optimize((f, g!),
             initialX,
-            LBFGS(linesearch = HagerZhang(0.1, 0.9, 1.0, 5.0, 1e-6, 0.66, 50, 0.1, 0)),
+            LBFGS(linesearch = Static(alpha=1.0)),
+            # LBFGS(linesearch = HagerZhang(0.1, 0.9, 1.0, 5.0, 1e-6, 0.66, 50, 0.1, 0)),
             Optim.Options(
                 x_tol=-1.0,
                 f_tol=-1.0,
@@ -51,25 +47,25 @@ end
 if USE_AF
 function qnBalancing{T<:AbstractFloat}(A::AFArray{T, 2}, ϵ=1.0e-9, max_iter=65535)
     M, N = size(A)
-    ColScale = AFArray(ones(N))
 
     function f(x) 
         @afgc v = sum(log.(A*exp.(AFArray(x)))) - sum(x)
         return v
     end
     function g!(grad, x)
-        v = exp.(x)
-        ColScale .= v
-        @afgc colscaled = Array(A .* ColScale')
-        rowsums = squeeze(sum(colscaled, 2), 2)
-        grad[:] = squeeze(sum(colscaled ./ rowsums, 1), 1) .- 1
+        @afgc exx = exp.(AFArray(x))
+        @afgc rowsums_inv = 1./(A * exx)
+        @afgc grad[:] = squeeze(rowsums_inv' * A, 1) .* exx .- 1
+        finalize(exx)
+        finalize(rowsums_inv)
     end
 
     initialX = -log.(Base.squeeze(sum(Array(A), 1), 1))
 
     result = optimize((f, g!),
             initialX,
-            LBFGS(linesearch = HagerZhang(0.1, 0.9, 1.0, 5.0, 1e-6, 0.66, 50, 0.1, 0)),
+            LBFGS(linesearch = Static(alpha=1.0)),
+            # LBFGS(linesearch = HagerZhang(0.1, 0.9, 1.0, 5.0, 1e-6, 0.66, 50, 0.1, 0)),
             Optim.Options(
                 x_tol=-1.0,
                 f_tol=-1.0,
@@ -80,7 +76,6 @@ function qnBalancing{T<:AbstractFloat}(A::AFArray{T, 2}, ϵ=1.0e-9, max_iter=655
                 allow_f_increases=true
             ))
     # @show result.minimizer
-    finalize(ColScale)
     P = Array(A) .* exp.(result.minimizer)'
     P ./ sum(P, 2)
 end
@@ -94,10 +89,11 @@ function qnBalancing_double{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=
         sum(A .* exp.(x .+ x'))/2 - sum(x)
     end : function(x)
         r, c = x[1:M], x[M+1:M+N]
-        sum(A .* exp.(r .+ c')) - sum(r) - sum(c)
+        sum(exp.(r)' * A * exp.(c)) - sum(x)
     end
     g! = issym ? function(grad, x)
-        grad .= Base.squeeze(sum(A .* exp.(x .+ x'), 2), 2) .- 1
+        exx = exp.(x)
+        grad .= exx .* (A * exx) .- 1
     end : function(grad, x)
         r, c = x[1:M], x[M+1:M+N]
         P = A .* exp.(r .+ c')
