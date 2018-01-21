@@ -1,7 +1,6 @@
 using BenchmarkTools
 using TensorBalancing
 using Logging
-using ProfileView
 include("knight_ruiz.jl")
 
 Logging.configure(level=ERROR)
@@ -21,8 +20,21 @@ TB.qnBalancing(Hessenberg_mod(3))
 TB.qnBalancing_double(Hessenberg_mod(3))
 TB.skBalancing(Hessenberg_mod(3))
 knight_ruiz(Hessenberg_mod(3))
+
 if TB.USE_AF
     TB.qnBalancing(AFArray(Hessenberg_mod(3)))
+else
+    AFArray(x) = Void
+end
+
+macro average_n_times(n, expr)
+    quote
+        t = 0.0
+        for i = 1:$n
+            t += @elapsed $(esc(expr))
+        end
+        t / $n
+    end
 end
 
 TESTS_TO_DO = 1:3
@@ -72,23 +84,18 @@ if 3 in TESTS_TO_DO
         sp, m = load_csc_file(fname)
         sp = squeeze(sp)
         sq = Array(squeeze(sp, 1))
-        # afsp = AFArray(sq)
+        afsp = AFArray(sq)
 
-        time1 = @elapsed TB.qnBalancing(sq, 1.0e-6, 2^30)
-        # time1 = @belapsed TB.qnBalancing($(sp), 1.0e-6, 2^30)
-        print(time1, "\t")
-        time2 = @elapsed TB.qnBalancing_double(sq, 1.0e-6, 2^30)
-        # time2 = @belapsed TB.qnBalancing_double($(sq), 1.0e-6, 2^30)
-        print(time2, "\t")
-        time3 = @elapsed knight_ruiz(sq, 1.0e-6)
-        # time3 = @belapsed knight_ruiz($(sq), $(1.0e-6))
-        print(time3, "\t")
-        time4 = @elapsed TB.skBalancing(sq, 1.0e-6, NaN)
-        # time4 = @belapsed TB.skBalancing($(sq), 1.0e-6, NaN)
-        print(time4, "\t")
-        time5 = @elapsed TB.nBalancing(sq, 1.0e-6, NaN);
-        # time5 = NaN # @belapsed TB.nBalancing($(sq), 1.0e-6, NaN);
-        print(time5, "\n")
+        time1 = @average_n_times 5 TB.qnBalancing(sq, 1.0e-6, 2^30)
+        @printf "%12.5f\t" time1
+        time2 = @average_n_times 5 TB.qnBalancing_double(sq, 1.0e-6, 2^30)
+        @printf "%12.5f\t" time2
+        time3 = @average_n_times 5 knight_ruiz(sq, 1.0e-6)
+        @printf "%12.5f\t" time3
+        time4 = @average_n_times 5 TB.skBalancing(sq, 1.0e-6, NaN)
+        @printf "%12.5f\t" time4
+        time5 = @average_n_times 5 TB.nBalancing(sq, 1.0e-6, NaN);
+        @printf "%12.5f\n" time5
     end
 end
 
