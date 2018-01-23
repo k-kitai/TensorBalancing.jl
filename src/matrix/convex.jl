@@ -29,7 +29,7 @@ function qnBalancing{T<:AbstractFloat}(A::AbstractArray{T, 2}, ϵ=1.0e-9, max_it
     function _g!(grad, x)
         exx = exp.(x)
         rowsums_inv = 1./ (A * exx)
-        grad .= squeeze(rowsums_inv' * A, 1) .* exx .- 1
+        grad .= Base.squeeze(rowsums_inv' * A, 1) .* exx - 1
     end
     g! = !log_norm ? _g! : 
         function(grad, x)
@@ -37,7 +37,8 @@ function qnBalancing{T<:AbstractFloat}(A::AbstractArray{T, 2}, ϵ=1.0e-9, max_it
             @printf "norm=%.13f\n" norm(grad)
         end
 
-    initialX = -log.(Base.squeeze(sum(A, 1), 1))
+    # initialX = -log.(Base.squeeze(sum(A, 1), 1))
+    initialX = -log.(A*ones(N))[:,1]
 
     result = optimize((f, g!),
             initialX,
@@ -93,8 +94,8 @@ function qnBalancing_double{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=
             @printf "norm=%.13f\n" norm(grad)
         end
 
-    initialX = issym ? -log.(Base.squeeze(sum(A, 1), 1)) ./ 2 :
-        -log.(vcat(Base.squeeze(sum(A, 2), 2), Base.squeeze(sum(A, 1), 1))) ./ 2
+    initialX = issym ? -log.(sum(A, 1)[1,:]) ./ 2 :
+        -log.(vcat(sum(A, 2)[:,1], sum(A, 1)[1,:])) ./ 2
     result = optimize((f, g!),
             initialX,
             LBFGS(linesearch = HagerZhang(0.1, 0.9, 1.0, 5.0, 1e-6, 0.66, 50, 0.1, 0)),

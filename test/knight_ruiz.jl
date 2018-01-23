@@ -12,21 +12,26 @@
 
 #This code was adapted from the MATLAB code implemented in Knight and Ruiz, IMA Journal of Numerical Analysis (2012)
 function knight_ruiz(M, tol=1e-6; log_norm=false, only_x=false);
-	M[isnan.(M)]=0;
-	L=size(M,1);
-	iz=find(sum(M,2).>0);
-	A=M[iz,iz];
+	# M[isnan.(M)]=0;
+	# L=size(M,1);
+	# iz=find(sum(M,2).>0);
+	# A=M[iz,iz];
+    A = M
 	n=size(A,1);
 	e = ones(n,1);
 	res=[];
 	delta = 0.1;
 	# x0 = e;
-    x0 = 1 ./ sqrt.(sum(A, 1)')
+    x0 = 1 ./ sqrt.(A * ones(size(A)[1]))
 	#tol = 1e-6;
 	g=0.9; etamax = 0.1; # Parameters used in inner stopping criterion.
 
 	eta = etamax;
-	x = x0; rt = tol^2; v = x.*(A*x); rk = 1 - v;
+	# x = x0; rt = tol^2; v = x.*(A*x); rk = 1 - v;
+	x = x0
+    rt = tol^2
+    v = x.*(A*x)
+    rk = 1 - v
 	rho_km1=sum(rk.^2);
 	rout = rho_km1; rold = rout;
 	MVP = 0; # count matrix vector products.
@@ -47,7 +52,8 @@ function knight_ruiz(M, tol=1e-6; log_norm=false, only_x=false);
         	w = x.*(A*(x.*p)) + v.*p;
         	#w=squeeze(w,2);
         	alpha = rho_km1/sum(p.*w);
-        	ap =Base.squeeze(alpha*p,2);
+        	# ap =Base.squeeze(alpha*p,2);
+        	ap =alpha*p;
         	# Test distance to boundary of cone.
         	ynew = y + ap;
         	if minimum(ynew) <= delta
@@ -86,12 +92,13 @@ function knight_ruiz(M, tol=1e-6; log_norm=false, only_x=false);
 	x=Base.squeeze(x,2);
 	A2=A*diagm(x);
 	A2=diagm(x)*A2;
-	A_balance=extend_mat(A2,iz,L);
-	A_balance=(A_balance+A_balance')/2;
-	x_final=zeros(L);
-	x_final[iz]=x;
+	# A_balance=extend_mat(A2,iz,L);
+	# A_balance=(A_balance+A_balance')/2;
+	# x_final=zeros(L);
+	# x_final[iz]=x;
 
-	return x_final,A_balance;
+	# return x_final,A_balance;
+	return x,A2;
 
 end
 
