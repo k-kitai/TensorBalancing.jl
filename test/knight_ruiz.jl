@@ -11,7 +11,7 @@
 #####################################
 
 #This code was adapted from the MATLAB code implemented in Knight and Ruiz, IMA Journal of Numerical Analysis (2012)
-function knight_ruiz(M, tol=1e-6; log_norm=false);
+function knight_ruiz(M, tol=1e-6; log_norm=false, only_x=false);
 	M[isnan.(M)]=0;
 	L=size(M,1);
 	iz=find(sum(M,2).>0);
@@ -80,6 +80,9 @@ function knight_ruiz(M, tol=1e-6; log_norm=false);
         #res=[res; r_norm];
 	end
 	#@printf("Matrix-vector products = %6d\n", MVP);
+	if only_x
+		return x
+	end
 	x=Base.squeeze(x,2);
 	A2=A*diagm(x);
 	A2=diagm(x)*A2;

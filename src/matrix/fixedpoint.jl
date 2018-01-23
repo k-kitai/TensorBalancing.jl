@@ -1,5 +1,5 @@
 # Matrix Balancing Methods based on fixed-point iteration
-function skBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN)  
+function skBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN)
     if issymmetric(A)
         _skBalancing_sym(A, ϵ, max_iter)
     else

@@ -86,15 +86,15 @@ if 3 in TESTS_TO_DO
         sq = Array(squeeze(sp, 1))
         afsp = AFArray(sq)
 
-        time1 = @average_n_times 5 TB.qnBalancing(sq, 1.0e-6, 2^30)
+        time1 = @average_n_times 5 TB.qnBalancing(sq, 1.0e-6, 2^30, only_x=true)
         @printf "%12.5f\t" time1
-        time2 = @average_n_times 5 TB.qnBalancing_double(sq, 1.0e-6, 2^30)
+        time2 = @average_n_times 5 TB.qnBalancing_double(sq, 1.0e-6, 2^30, only_x=true)
         @printf "%12.5f\t" time2
-        time3 = @average_n_times 5 knight_ruiz(sq, 1.0e-6)
+        time3 = @average_n_times 5 knight_ruiz(sq, 1.0e-6, only_x=true)
         @printf "%12.5f\t" time3
         time4 = @average_n_times 5 TB.skBalancing(sq, 1.0e-6, NaN)
         @printf "%12.5f\t" time4
-        time5 = @average_n_times 5 TB.nBalancing(sq, 1.0e-6, NaN);
+        time5 = @average_n_times 5 TB.nBalancing(sq, 1.0e-6, NaN, only_theta=true);
         @printf "%12.5f\n" time5
     end
 end
@@ -128,10 +128,11 @@ end
 
 if 5 in TESTS_TO_DO
     println("=== profiling ===")
-    sp, m = load_csc_file("Hi-C_example/x_res50000.txt")
-    sq = squeeze(sp, 1)
+    sp, m = load_csc_file("Hi-C_example/x_res10000.txt")
+    sq = Array(squeeze(sp, 1))
     @profile TB.qnBalancing(sq, 1.0e-6, 2^30)
-    Profile.print(mincount=300)
+    # @profile knight_ruiz(sq, 1.0e-6)
+    Profile.print(mincount=100)
 end
 
 if 6 in TESTS_TO_DO

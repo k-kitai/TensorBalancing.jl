@@ -18,7 +18,7 @@ using Base.Threads
 Matrix balancing algorithm based using LBFGS
 """
 
-function qnBalancing{T<:AbstractFloat}(A::AbstractArray{T, 2}, ϵ=1.0e-9, max_iter=65535; log_norm=false)
+function qnBalancing{T<:AbstractFloat}(A::AbstractArray{T, 2}, ϵ=1.0e-9, max_iter=65535; log_norm=false, only_x=false)
     M, N = size(A)
 
     nth = nthreads()
@@ -53,6 +53,9 @@ function qnBalancing{T<:AbstractFloat}(A::AbstractArray{T, 2}, ϵ=1.0e-9, max_it
                 allow_f_increases=true
             ))
     # @show result.minimizer
+    if only_x
+        return result.minimizer
+    end
     P = A .* exp.(result.minimizer)'
     P ./ sum(P, 2)
 end
@@ -61,7 +64,7 @@ if USE_AF
     include("gpu/convex.jl")
 end #USE_AF
 
-function qnBalancing_double{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=65535; log_norm=false)
+function qnBalancing_double{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=65535; log_norm=false, only_x=false)
     M, N = size(A)
 
     issym = issymmetric(A)
@@ -105,6 +108,9 @@ function qnBalancing_double{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=
                 allow_f_increases=true
             ))
     # @show result.minimizer
+    if only_x
+        return result.minimizer
+    end
     exx = exp.(result.minimizer)
     issym ? A .* exx .* exx' : A .* exx[1:M] .* exx[M+1:M+N]'
 end
