@@ -25,7 +25,7 @@ function qnBalancing{T<:AbstractFloat}(A::AbstractArray{T, 2}, ϵ=1.0e-9, max_it
     blocksize = div(M, nth)
     rowblocks = [blocksize*n+1:blocksize*(n+1) for n = 0:nth-1]
     rowblocks[end] = blocksize*(nth-1)+1 : M
-    f(x) = sum(log.(A*exp.(x))) - sum(x)
+    f(x) = log(prod(A*exp.(x))) - sum(x)
     function _g!(grad, x)
         exx = exp.(x)
         rowsums_inv = 1./ (A * exx)
@@ -67,7 +67,9 @@ function qnBalancing_double{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=
     issym = issymmetric(A)
     f = issym ? function(x)
         exx = exp.(x)
-        exx' * A * exx / 2 - sum(x)
+        exx' * A * exx / 2 - sum(x) + 0.5x[end]
+        # The last term is only for preventing iterations from stopping because of f_converged.
+        # Its gradient shouldn't be included.
     end : function(x)
         # r, c = x[1:M], x[M+1:M+N]
         exx = exp.(x)
