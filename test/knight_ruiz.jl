@@ -11,7 +11,7 @@
 #####################################
 
 #This code was adapted from the MATLAB code implemented in Knight and Ruiz, IMA Journal of Numerical Analysis (2012)
-function knight_ruiz(M, tol=1e-6);
+function knight_ruiz(M, tol=1e-6; log_norm=false);
 	M[isnan.(M)]=0;
 	L=size(M,1);
 	iz=find(sum(M,2).>0);
@@ -20,7 +20,8 @@ function knight_ruiz(M, tol=1e-6);
 	e = ones(n,1);
 	res=[];
 	delta = 0.1;
-	x0 = e;
+	# x0 = e;
+    x0 = 1 ./ sqrt.(sum(A, 1)')
 	#tol = 1e-6;
 	g=0.9; etamax = 0.1; # Parameters used in inner stopping criterion.
 
@@ -61,6 +62,7 @@ function knight_ruiz(M, tol=1e-6);
         	y = ynew;
         	rk = rk - alpha*w; rho_km2 = rho_km1; rho_km2=rho_km2[1];
         	Z = rk./v; rho_km1 = sum(rk.*Z);
+            log_norm && @printf "rho_km1^0.5=%.13f\n" sqrt(rho_km1)
     	end
     	x = x.*y; v = x.*(A*x);
     	rk = 1 - v; rho_km1 = sum(rk.*rk); rout = rho_km1;
@@ -74,6 +76,7 @@ function knight_ruiz(M, tol=1e-6);
     	eta = maximum([minimum([eta;etamax]);0.5*tol/r_norm]);
     	#@printf("%3d %6d %.3e %.3e %.3e \n", i,k,r_norm,minimum(y),minimum(x));
         #display(rout);
+        log_norm && @printf "norm=%.13f\n" sqrt(rout)
         #res=[res; r_norm];
 	end
 	#@printf("Matrix-vector products = %6d\n", MVP);

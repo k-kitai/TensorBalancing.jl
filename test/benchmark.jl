@@ -133,3 +133,34 @@ if 5 in TESTS_TO_DO
     @profile TB.qnBalancing(sq, 1.0e-6, 2^30)
     Profile.print(mincount=300)
 end
+
+if 6 in TESTS_TO_DO
+    println("=== logging ϵ ===")
+    default_stdout = STDOUT
+
+    sp, m = load_csc_file("Hi-C_example/x_res5000.txt")
+    sq = Array(squeeze(sp, 1))
+
+    write(default_stdout, "Executing qnBalancing\n")
+    f = open("log_res5000_qnBalancing.txt", "w")
+    redirect_stdout(f)
+    X = TB.qnBalancing(sq, 1.0e-6, log_norm=true);
+    @assert TB.calcRes(X) < 1.0e-6
+    close(f)
+
+    write(default_stdout, "Executing qnBalancing_double\n")
+    f = open("log_res5000_qnBalancing_double.txt", "w")
+    redirect_stdout(f)
+    X = TB.qnBalancing_double(sq, 1.0e-6, log_norm=true);
+    @assert TB.calcRes(X) < 1.0e-6
+    close(f)
+
+    write(default_stdout, "Executing knight_ruiz\n")
+    f = open("log_res5000_KnightRuiz.txt", "w")
+    redirect_stdout(f)
+    X = knight_ruiz(sq, 1.0e-6, log_norm=true);
+    @assert TB.calcRes(X) < 1.0e-6
+    close(f)
+
+    redirect_stdout(default_stdout)
+end
