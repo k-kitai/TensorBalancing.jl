@@ -8,7 +8,7 @@ using LineSearches
 Matrix balancing algorithm based on information geometry
 and Newton's Method.
 """
-function nBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN, only_theta=false)
+function nBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN; log_norm=false, only_theta=false)
     M, N = size(A)
     # initialΔθ = issymmetric(A) ? zeros(T, M-1) : zeros(T, M+N-2)
     issym = issymmetric(A)
@@ -17,11 +17,11 @@ function nBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN, onl
     colscale = issym ? 0 : -log.(Base.squeeze(sum(A, 1), 1)) ./ 2
     initialΔθ = issym ? rowscale[1:end-1] - rowscale[2:end] :
         vcat(rowscale[1:end-1] - rowscale[2:end],colscale[1:end-1] - colscale[2:end])
-    Δθ = _nBalancing(A, initialΔθ, ϵ, max_iter)
+    Δθ = _nBalancing(A, initialΔθ, ϵ, max_iter, log_norm=log_norm, only_theta=only_theta)
     only_theta ? Δθ : applyΔθ(A, Δθ)
 end
 
-function _nBalancing{T<:AbstractFloat}(A::Matrix{T}, initialΔθ, ϵ=1.0e-9, max_iter=NaN)
+function _nBalancing{T<:AbstractFloat}(A::Matrix{T}, initialΔθ, ϵ=1.0e-9, max_iter=NaN; log_norm=false, only_theta=false)
     M, N = size(A)
     issym = issymmetric(A)
     targetη = issym ? 2genTargetη(A)[1:M-1] : genTargetη(A)
@@ -100,6 +100,7 @@ function _nBalancing{T<:AbstractFloat}(A::Matrix{T}, initialΔθ, ϵ=1.0e-9, max
         residual = calcRes(P)
         counter += 1
         # @show α f(Δθ) residual
+        log_norm && @printf "norm=%.13f\n" residual
     end
     Δθ
 end

@@ -13,7 +13,6 @@ end
 include("common.jl")
 
 Ns = round.(Int32, exp.(linspace(log(100), log(30000), 15)))
-Ns = Ns[1:11]
 
 TB.nBalancing(Hessenberg_mod(3))
 TB.qnBalancing(Hessenberg_mod(3))
@@ -131,11 +130,11 @@ end
 
 if 5 in TESTS_TO_DO
     println("=== profiling ===")
-    sp, m = load_csc_file("Hi-C_example/x_res5000.txt")
+    sp, m = load_csc_file("Hi-C_example/x_res25000.txt")
     sq = Array(squeeze(sp, 1))
-    # @profile TB.qnBalancing(sq, 1.0e-6, 2^30, only_x=true)
-    @profile knight_ruiz(sq, 1.0e-6, only_x=true)
-    Profile.print(mincount=10)
+    @profile TB.qnBalancing_easy(sq, 1.0e-6, 2^30, only_x=true)
+    # @profile knight_ruiz(sq, 1.0e-6, only_x=true)
+    Profile.print(mincount=30)
 end
 
 if 6 in TESTS_TO_DO
@@ -168,3 +167,28 @@ if 6 in TESTS_TO_DO
 
     redirect_stdout(default_stdout)
 end
+
+if 7 in TESTS_TO_DO
+    println("=== Capacity-Func vs. Barrier-Func vs. Knight-Ruiz vs. Sinkhorn-Knopp vs. Newton ===\n")
+
+    print("size\tCapacity-Func\tBarrier-Func\tKnight-Ruiz\tSinkhorn-Knopp\tNewton\n")
+    for N = Ns
+        print("$N\t")
+        sq = pseudo_hic(N)
+
+        # time1 = @average_n_times 5 TB.qnBalancing(sq, 1.0e-6, 2^30, only_x=true)
+        time1 = NaN # @belapsed TB.qnBalancing($(sq), 1.0e-9, 2^30, only_x=true)
+        @printf "%12.5f\t" time1
+        # time2 = @average_n_times 5 TB.qnBalancing_double(sq, 1.0e-6, 2^30, only_x=true)
+        # time2 = @average_n_times 3 TB.qnBalancing_easy(sq, 1.0e-9, 2^30, only_x=true)
+        # @printf "%12.5f\t" time2
+        # time3 = @average_n_times 5 knight_ruiz(sq, 1.0e-6, only_x=true)
+        time3 = @average_n_times 3 knight_ruiz(sq, 1.0e-9, only_x=true)
+        @printf "%12.5f\t" time3
+        time4 = NaN # @average_n_times 5 TB.skBalancing(sq, 1.0e-6, NaN)
+        @printf "%12.5f\t" time4
+        time5 = NaN # @average_n_times 5 TB.nBalancing(sq, 1.0e-6, NaN, only_theta=true);
+        @printf "%12.5f\n" time5
+    end
+end
+

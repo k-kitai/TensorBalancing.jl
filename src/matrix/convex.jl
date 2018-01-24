@@ -21,11 +21,6 @@ Matrix balancing algorithm based using LBFGS
 function qnBalancing{T<:AbstractFloat}(A::AbstractArray{T, 2}, ϵ=1.0e-9, max_iter=65535; log_norm=false, only_x=false)
     M, N = size(A)
 
-    nth = nthreads()
-    blocksize = div(M, nth)
-    rowblocks = [blocksize*n+1:blocksize*(n+1) for n = 0:nth-1]
-    rowblocks[end] = blocksize*(nth-1)+1 : M
-    f(x) = log(prod(A*exp.(x))) - sum(x)
     function _g!(grad, x)
         exx = exp.(x)
         rowsums_inv = 1./ (A * exx)
@@ -37,27 +32,52 @@ function qnBalancing{T<:AbstractFloat}(A::AbstractArray{T, 2}, ϵ=1.0e-9, max_it
             @printf "norm=%.13f\n" norm(grad)
         end
 
-    # initialX = -log.(Base.squeeze(sum(A, 1), 1))
-    initialX = -log.(A*ones(N))[:,1]
+    grad = zeros(N)
+    grad_p = zeros(N)
+    sbuf = []
+    ybuf = []
 
-    result = optimize((f, g!),
-            initialX,
-            LBFGS(linesearch = Static(alpha=1.0)),
-            # LBFGS(linesearch = HagerZhang(0.1, 0.9, 1.0, 5.0, 1e-6, 0.66, 50, 0.1, 0)),
-            Optim.Options(
-                x_tol=-1.0,
-                f_tol=-1.0,
-                g_tol=ϵ/sqrt(N),
-                iterations=max_iter,
-                show_trace=false,
-                show_every=1,
-                allow_f_increases=true
-            ))
-    # @show result.minimizer
-    if only_x
-        return result.minimizer
+    function tloop(g, ss, ys)
+        p = -g
+        local m = length(ss)
+        if (m == 0) return p end
+        alphas = zeros(m)
+        for i = m:-1:1
+            alphas[i] = (ss[i]' * p) / (ss[i]' * ys[i])
+            p .-= alphas[i]*ys[i]
+        end
+        p *= (ss[end]' * ys[end]) / (ys[end]' * ys[end])
+        for i=1:m
+            beta = (ys[i]' * p) / (ss[i]' * ys[i])
+            p += (alphas[i]-beta)ss[i]
+        end
+        return p
     end
-    P = A .* exp.(result.minimizer)'
+
+    x = -log.(A*ones(N))[:,1]
+
+    m=10
+    k=1
+    g!(grad, x)
+    ϵ = ϵ/sqrt(N)
+    while norm(grad) > ϵ
+        p = tloop(grad, sbuf, ybuf)
+        x += p
+        grad_p .= grad
+        g!(grad, x)
+        if k > m
+            sbuf = sbuf[2:end]
+            ybuf = ybuf[2:end]
+        end
+        push!(sbuf, p)
+        push!(ybuf, grad - grad_p)
+        k += 1
+    end
+
+    if only_x
+        return x
+    end
+    P = A .* exp.(x)'
     P ./ sum(P, 2)
 end
 
@@ -69,18 +89,6 @@ function qnBalancing_double{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=
     M, N = size(A)
 
     issym = issymmetric(A)
-    f = issym ? function(x)
-        exx = exp.(x)
-        exx' * A * exx / 2 - sum(x) + 0.5x[end]
-        # The last term is only for preventing iterations from stopping because of f_converged.
-        # Its gradient shouldn't be included.
-    end : function(x)
-        # r, c = x[1:M], x[M+1:M+N]
-        exx = exp.(x)
-        sum(exx[1:M]' * A * exx[M+1:M+N]) - sum(x) + 0.5x[end]
-        # The last term is only for preventing iterations from stopping because of f_converged.
-        # Its gradient shouldn't be included.
-    end
     _g! = issym ? function(grad, x)
         exx = exp.(x)
         grad .= exx .* (A * exx) .- 1
@@ -94,24 +102,53 @@ function qnBalancing_double{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=
             @printf "norm=%.13f\n" norm(grad)
         end
 
-    initialX = issym ? -log.(sum(A, 1)[1,:]) ./ 2 :
+    grad = issym ? zeros(N) : zeros(M+N)
+    grad_p = copy(grad)
+    sbuf = []
+    ybuf = []
+
+    function tloop(g, ss, ys)
+        p = -g
+        local m = length(ss)
+        if (m == 0) return p end
+        alphas = zeros(m)
+        for i = m:-1:1
+            alphas[i] = (ss[i]' * p) / (ss[i]' * ys[i])
+            p .-= alphas[i]*ys[i]
+        end
+        p *= (ss[end]' * ys[end]) / (ys[end]' * ys[end])
+        for i=1:m
+            beta = (ys[i]' * p) / (ss[i]' * ys[i])
+            p += (alphas[i]-beta)ss[i]
+        end
+        return p
+    end
+
+    x = issym ? -log.(sum(A, 1)[1,:]) ./ 2 :
         -log.(vcat(sum(A, 2)[:,1], sum(A, 1)[1,:])) ./ 2
-    result = optimize((f, g!),
-            initialX,
-            LBFGS(linesearch = HagerZhang(0.1, 0.9, 1.0, 5.0, 1e-6, 0.66, 50, 0.1, 0)),
-            Optim.Options(
-                x_tol=-1.0,
-                f_tol=-1.0,
-                g_tol=ϵ/sqrt(N+M),
-                iterations=max_iter,
-                show_trace=false,
-                show_every=1,
-                allow_f_increases=true
-            ))
+    # x = issym ? zeros(N) : zeros(M+N)
+
+    m=10
+    k=1
+    g!(grad, x)
+    ϵ = issym ? ϵ/sqrt(2) : ϵ
+    while norm(grad) > ϵ
+        p = tloop(grad, sbuf, ybuf)
+        x += p
+        grad_p .= grad
+        g!(grad, x)
+        if k > m
+            sbuf = sbuf[2:end]
+            ybuf = ybuf[2:end]
+        end
+        push!(sbuf, p)
+        push!(ybuf, grad - grad_p)
+        k += 1
+    end
     # @show result.minimizer
     if only_x
-        return result.minimizer
+        return x
     end
-    exx = exp.(result.minimizer)
+    exx = exp.(x)
     issym ? A .* exx .* exx' : A .* exx[1:M] .* exx[M+1:M+N]'
 end
