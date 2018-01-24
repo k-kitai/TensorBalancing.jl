@@ -85,6 +85,7 @@ if USE_AF
     include("gpu/convex.jl")
 end #USE_AF
 
+# function qnBalancing_double{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=65535; log_norm=false, only_x=false)
 function qnBalancing_double{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=65535; log_norm=false, only_x=false)
     M, N = size(A)
 

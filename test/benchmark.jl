@@ -21,7 +21,7 @@ TB.skBalancing(Hessenberg_mod(3))
 knight_ruiz(Hessenberg_mod(3))
 
 if TB.USE_AF
-    TB.qnBalancing(AFArray(Hessenberg_mod(3)))
+    TB.qnBalancing_double(AFArray(Hessenberg_mod(3)))
 else
     AFArray(x) = Void
 end
@@ -85,14 +85,14 @@ if 3 in TESTS_TO_DO
         sq = Array(squeeze(sp, 1))
         afsp = AFArray(sq)
 
-        # time1 = @average_n_times 5 TB.qnBalancing(sq, 1.0e-6, 2^30, only_x=true)
-        time1 = @belapsed TB.qnBalancing($(sq), 1.0e-9, 2^30, only_x=true)
+        time1 = @average_n_times 5 TB.qnBalancing(sq, 1.0e-6, 2^30, only_x=true)
+        # time1 = @belapsed TB.qnBalancing($(sq), 1.0e-9, 2^30, only_x=true)
         @printf "%12.5f\t" time1
-        # time2 = @average_n_times 5 TB.qnBalancing_double(sq, 1.0e-6, 2^30, only_x=true)
-        time2 = @belapsed TB.qnBalancing_double($(sq), 1.0e-9, 2^30, only_x=true)
+        time2 = @average_n_times 5 TB.qnBalancing_double(afsp, 1.0e-6, 2^30, only_x=true)
+        # time2 = @belapsed TB.qnBalancing_double($(afsp), 1.0e-9, 2^30, only_x=true)
         @printf "%12.5f\t" time2
-        # time3 = @average_n_times 5 knight_ruiz(sq, 1.0e-6, only_x=true)
-        time3 = @belapsed knight_ruiz($(sq), 1.0e-9, only_x=true)
+        time3 = @average_n_times 5 knight_ruiz(sq, 1.0e-6, only_x=true)
+        # time3 = @belapsed knight_ruiz($(sq), 1.0e-9, only_x=true)
         @printf "%12.5f\t" time3
         time4 = NaN # @average_n_times 5 TB.skBalancing(sq, 1.0e-6, NaN)
         @printf "%12.5f\t" time4
@@ -130,9 +130,9 @@ end
 
 if 5 in TESTS_TO_DO
     println("=== profiling ===")
-    sp, m = load_csc_file("Hi-C_example/x_res25000.txt")
+    sp, m = load_csc_file("Hi-C_example/x_res50000.txt")
     sq = Array(squeeze(sp, 1))
-    @profile TB.qnBalancing_easy(sq, 1.0e-6, 2^30, only_x=true)
+    @profile TB.qnBalancing_double(AFArray(sq), 1.0e-6, 2^30, only_x=true, log_norm=true)
     # @profile knight_ruiz(sq, 1.0e-6, only_x=true)
     Profile.print(mincount=30)
 end
