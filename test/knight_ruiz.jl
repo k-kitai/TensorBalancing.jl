@@ -37,6 +37,7 @@ function knight_ruiz(M, tol=1e-6; log_norm=false, only_x=false);
 	MVP = 0; # count matrix vector products.
 	i = 0; # Outer iteration count.
 
+	tol /= sqrt(2) # correction for comparison
 	while rout > rt # Outer iteration
     	i = i + 1; k = 0; y = e;
     	innertol = maximum([eta^2*rout;rt]);
@@ -68,7 +69,7 @@ function knight_ruiz(M, tol=1e-6; log_norm=false, only_x=false);
         	y = ynew;
         	rk = rk - alpha*w; rho_km2 = rho_km1; rho_km2=rho_km2[1];
         	Z = rk./v; rho_km1 = sum(rk.*Z);
-            log_norm && @printf "rho_km1^0.5=%.13f\n" sqrt(rho_km1)
+            log_norm && @printf "rho_km1^0.5=%.18f\n" sqrt(2rho_km1)
     	end
     	x = x.*y; v = x.*(A*x);
     	rk = 1 - v; rho_km1 = sum(rk.*rk); rout = rho_km1;
@@ -82,7 +83,7 @@ function knight_ruiz(M, tol=1e-6; log_norm=false, only_x=false);
     	eta = maximum([minimum([eta;etamax]);0.5*tol/r_norm]);
     	#@printf("%3d %6d %.3e %.3e %.3e \n", i,k,r_norm,minimum(y),minimum(x));
         #display(rout);
-        log_norm && @printf "norm=%.13f\n" sqrt(rout)
+        log_norm && @printf "norm=%.18f\n" sqrt(2rout)
         #res=[res; r_norm];
 	end
 	#@printf("Matrix-vector products = %6d\n", MVP);

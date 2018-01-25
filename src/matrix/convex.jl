@@ -29,7 +29,7 @@ function qnBalancing{T<:AbstractFloat}(A::AbstractArray{T, 2}, ϵ=1.0e-9, max_it
     g! = !log_norm ? _g! : 
         function(grad, x)
             _g!(grad, x)
-            @printf "norm=%.13f\n" norm(grad)
+            @printf "norm=%.18f\n" norm(grad)
         end
 
     grad = zeros(N)
@@ -59,8 +59,8 @@ function qnBalancing{T<:AbstractFloat}(A::AbstractArray{T, 2}, ϵ=1.0e-9, max_it
     m=10
     k=1
     g!(grad, x)
-    ϵ = ϵ/sqrt(N)
-    while norm(grad) > ϵ
+    # ϵ = ϵ/sqrt(2)
+    while norm(grad) > ϵ && k <= max_iter
         p = tloop(grad, sbuf, ybuf)
         x += p
         grad_p .= grad
@@ -99,7 +99,7 @@ function qnBalancing_double{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=
     g! = !log_norm ? _g! : 
         function(grad, x)
             _g!(grad, x)
-            @printf "norm=%.13f\n" norm(grad)
+            @printf "norm=%.18f\n" norm(grad)*(issym?sqrt(2):1)
         end
 
     grad = issym ? zeros(N) : zeros(M+N)
@@ -132,7 +132,7 @@ function qnBalancing_double{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=
     k=1
     g!(grad, x)
     ϵ = issym ? ϵ/sqrt(2) : ϵ
-    while norm(grad) > ϵ
+    while norm(grad) > ϵ && k <= max_iter
         p = tloop(grad, sbuf, ybuf)
         x += p
         grad_p .= grad
