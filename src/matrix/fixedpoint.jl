@@ -31,11 +31,11 @@ function _skBalancing_sym{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=Na
     N, _ = size(A)
     x = ones(N)
     counter = 0
-    residual = norm(x.*(A * x))
+    residual = norm(x-(A * x))
     ϵ /= sqrt(2) # correction for comparison
     while residual > ϵ && (isnan(max_iter) || counter < max_iter)
         x .= 1 ./ (A * x)
-        residual = norm(x.*(A * x))
+        residual = norm(x-(A * x))
         counter += 1
         # @show residual
     end
