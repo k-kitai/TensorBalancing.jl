@@ -75,6 +75,12 @@ if 3 in TESTS_TO_DO
               "Hi-C_example/x_res25000.txt",
               "Hi-C_example/x_res10000.txt",
               "Hi-C_example/x_res5000.txt"]
+    fnames = ["Hi-C_example/2L_10000.txt",
+              "Hi-C_example/2L_05000.txt",
+              "Hi-C_example/2L_02000.txt",
+              "Hi-C_example/2L_01000.txt",
+              "Hi-C_example/2L_00500.txt"]
+    fnames = ["Hi-C_example/chrX_5KB_bins.half.txt"]
     cut_sk = false
 
     print("filename\tCapacity-Func\tBarrier-Func\tKnight-Ruiz\tSinkhorn-Knopp\tNewton\n")
@@ -82,11 +88,12 @@ if 3 in TESTS_TO_DO
         print("$(basename(fname))\t")
         sp, m = load_csc_file(fname)
         sp = squeeze(sp)
-        sq = Array(squeeze(sp, 1))
+        #sq = Array(squeeze(sp, 1))
+        sq = squeeze(sp, 1)
         afsp = AFArray(sq)
 
-        time1 = @average_n_times 5 TB.qnBalancing(sq, 1.0e-6, 2^30, only_x=true)
-        # time1 = @belapsed TB.qnBalancing($(sq), 1.0e-9, 2^30, only_x=true)
+        # time1 = @average_n_times 5 TB.qnBalancing(sq, 1.0e-6, 2^30, only_x=true)
+        time1 =  @belapsed TB.qnBalancing($(sq), 1.0e-9, 2^30, only_x=true)
         @printf "%12.5f\t" time1
         time2 = @average_n_times 5 TB.qnBalancing_double(afsp, 1.0e-6, 2^30, only_x=true)
         # time2 = @belapsed TB.qnBalancing_double($(afsp), 1.0e-9, 2^30, only_x=true)
@@ -190,5 +197,43 @@ if 7 in TESTS_TO_DO
         time5 = NaN # @average_n_times 5 TB.nBalancing(sq, 1.0e-6, NaN, only_theta=true);
         @printf "%12.5f\n" time5
     end
+end
+
+if 8 in TESTS_TO_DO
+    println("=== logging ϵ ===")
+    default_stdout = STDOUT
+
+    sq = Hessenberg_mod(1500)
+    sq_sym = symmetrize(sq)
+
+    write(default_stdout, "Executing qnBalancing\n")
+    f = open("log_hes1500_qnBalancing.txt", "w")
+    redirect_stdout(f)
+    X = TB.qnBalancing(sq, 1.0e-9, log_norm=true);
+    @assert TB.calcRes(X) < 1.0e-9
+    close(f)
+    
+    write(default_stdout, "Executing qnBalancing_double\n")
+    f = open("log_hes1500_qnBalancing_double.txt", "w")
+    redirect_stdout(f)
+    X = TB.qnBalancing_double(sq, 1.0e-9, log_norm=true);
+    @assert TB.calcRes(X) < 1.0e-9
+    close(f)
+    
+    write(default_stdout, "Executing knight_ruiz\n")
+    f = open("log_hes1500_KnightRuiz.txt", "w")
+    redirect_stdout(f)
+    _, X = knight_ruiz(sq_sym, 1.0e-9, log_norm=true, only_x=true);
+    # @assert TB.calcRes(X) < 1.0e-9
+    close(f)
+    
+    write(default_stdout, "Executing newton\n")
+    f = open("log_hes1500_Newton.txt", "w")
+    redirect_stdout(f)
+    _, X = TB.nBalancing(sq, 1.0e-9, log_norm=true);
+    # @assert TB.calcRes(X) < 1.0e-9
+    close(f)
+
+    redirect_stdout(default_stdout)
 end
 

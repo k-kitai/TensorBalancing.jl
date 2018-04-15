@@ -100,7 +100,7 @@ function _nBalancing{T<:AbstractFloat}(A::Matrix{T}, initialΔθ, ϵ=1.0e-9, max
         residual = calcRes(P)
         counter += 1
         # @show α f(Δθ) residual
-        log_norm && @printf "norm=%.13f\n" residual
+        log_norm && @printf "norm=%.18f\n" residual
     end
     Δθ
 end
