@@ -1,22 +1,25 @@
 # Matrix Balancing Methods based on fixed-point iteration
-function skBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN)
-    if issymmetric(A)
+skBalancing{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN) =
+    skBalancing(A, ones(shape(A)[1]), ones(shape(A)[2]), ϵ, max_iter)
+
+function skBalancing{T<:AbstractFloat}(A::Matrix{T}, target_row, target_col, ϵ=1.0e-9, max_iter=NaN)
+    if issymmetric(A) && (target_row == target_col)
         _skBalancing_sym(A, ϵ, max_iter)
     else
-        _skBalancing_nosym(A, ϵ, max_iter)
+        _skBalancing_nosym(A, target_row, target_col, ϵ, max_iter)
     end
 end
 
-function _skBalancing_nosym{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=NaN)
+function _skBalancing_nosym{T<:AbstractFloat}(A::Matrix{T}, target_row, target_col, ϵ=1.0e-9, max_iter=NaN)
     M, N = size(A)
     r = ones(M)
     c = ones(N)
     counter = 0
-    residual = calcRes(A .* r .* c')
+    residual = calcRes(A .* r .* c', target_row, target_col)
     while residual > ϵ && (isnan(max_iter) || counter < max_iter)
-        r .= 1 ./ (A * c)
-        c .= 1 ./ (A' * r)
-        residual = calcRes(A .* r .* c')
+        r .= target_row ./ (A * c)
+        c .= target_col ./ (A' * r)
+        residual = calcRes(A .* r .* c', target_row, target_col)
         counter += 1
         # @show residual
     end

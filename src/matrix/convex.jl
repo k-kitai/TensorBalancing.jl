@@ -30,6 +30,7 @@ function qnBalancing{T<:AbstractFloat}(A::AbstractArray{T, 2}, ϵ=1.0e-9, max_it
         function(grad, x)
             _g!(grad, x)
             @printf "norm=%.18f\n" norm(grad)
+            flush(STDOUT)
         end
 
     grad = zeros(N)
@@ -85,21 +86,25 @@ if USE_AF
     include("gpu/convex.jl")
 end #USE_AF
 
-function qnBalancing_double{T<:AbstractFloat}(A::Matrix{T}, ϵ=1.0e-9, max_iter=65535; log_norm=false, only_x=false)
+qnBalancing_double{T<:AbstractFloat}(A::AbstractArray{T, 2}, ϵ=1.0e-9, max_iter=65535; log_norm=false, only_x=false) =
+    qnBalancing_double(A, ones(shape(A)[0]), ones(shape(A)[1]), ϵ, max_iter, only_x)
+
+function qnBalancing_double{T<:AbstractFloat}(A::AbstractArray{T, 2}, target_row, target_col, ϵ=1.0e-9, max_iter=65535; log_norm=false, only_x=false)
     M, N = size(A)
 
-    issym = issymmetric(A)
+    issym = issymmetric(A) && (target_row == target_col)
     _g! = issym ? function(grad, x)
         exx = exp.(x)
         grad .= exx .* (A * exx) .- 1
     end : function(grad, x)
         exx = exp.(x)
-        grad .= vcat(exx[1:M].*(A*exx[M+1:M+N]), exx[M+1:M+N].*(A'*exx[1:M])) .- 1
+        grad .= vcat(exx[1:M].*(A*exx[M+1:M+N]) - target_row, exx[M+1:M+N].*(A'*exx[1:M]) - target_col)
     end
     g! = !log_norm ? _g! : 
         function(grad, x)
             _g!(grad, x)
             @printf "norm=%.18f\n" norm(grad)*(issym?sqrt(2):1)
+            flush(STDOUT)
         end
 
     grad = issym ? zeros(N) : zeros(M+N)
